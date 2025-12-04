@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaffleWheel Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc;
+        }
+
+        /* Custom Scrollbar */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .canvas-container {
+            box-shadow: 0 0 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Modal Animation */
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 300ms, transform 300ms;
+        }
+        .modal-exit {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .modal-exit-active {
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity 300ms, transform 300ms;
+        }
+
+        /* Confetti Canvas */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-10 shrink-0">
+        <div class="flex items-center gap-2">
+            <i data-lucide="aperture" class="text-indigo-400 w-6 h-6"></i>
+            <h1 class="font-bold text-xl tracking-wide">RaffleWheel<span class="text-indigo-400">Pro</span></h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Language Selector -->
+            <select id="lang-selector" class="bg-slate-700 text-slate-200 text-sm rounded-lg px-2 py-1 border-none focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer">
+                <option value="en">🇬🇧 EN</option>
+                <option value="de">🇩🇪 DE</option>
+                <option value="es">🇪🇸 ES</option>
+                <option value="fr">🇫🇷 FR</option>
+            </select>
+
+            <button id="btn-settings" class="p-2 hover:bg-slate-700 rounded-full transition-colors text-slate-400 hover:text-white" title="Settings">
+                <i data-lucide="settings" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        
+        <!-- Left Panel: Inputs -->
+        <aside class="w-full lg:w-1/3 bg-slate-800/50 border-r border-slate-700 flex flex-col p-6 gap-4 z-10 overflow-y-auto">
+            
+            <div class="flex justify-between items-center">
+                <label data-i18n="participants" class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Participants</label>
+                <span id="count-badge" class="bg-indigo-600 text-xs px-2 py-0.5 rounded-full font-bold">4 Names</span>
+            </div>
+
+            <textarea id="input-names" 
+                class="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none leading-relaxed"
+                placeholder="Enter names here...&#10;One per line"
+            >Max Mustermann
+Anna Müller
+Lukas Schmidt
+Julia Weber</textarea>
+
+            <div class="flex gap-2">
+                <button id="btn-shuffle" class="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="shuffle" class="w-4 h-4"></i> <span data-i18n="shuffle">Shuffle</span>
+                </button>
+                <button id="btn-spin" class="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold shadow-lg shadow-indigo-900/50 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                    <i data-lucide="play-circle" class="w-5 h-5"></i> <span data-i18n="spin">SPIN NOW</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Right Panel: The Wheel -->
+        <section class="flex-1 relative bg-slate-900 flex items-center justify-center p-4 overflow-hidden">
+            <!-- Background Pattern -->
+            <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#4f46e5 1px, transparent 1px); background-size: 24px 24px;"></div>
+
+            <div class="canvas-container relative w-full max-w-[600px] aspect-square">
+                <!-- Pointer -->
+                <div class="absolute top-1/2 -right-4 -translate-y-1/2 z-20 filter drop-shadow-lg">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="white" class="text-red-500">
+                        <path d="M3 12L21 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M3 12L12 3M3 12L12 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="white"/>
+                        <!-- Simple Triangle Pointer -->
+                         <polygon points="0,12 16,4 16,20" fill="#ef4444" stroke="white" stroke-width="2" />
+                    </svg>
+                </div>
+                
+                <canvas id="wheel-canvas" width="800" height="800" class="w-full h-full object-contain"></canvas>
+            </div>
+        </section>
+    </main>
+
+    <!-- Settings Modal (Hidden by default) -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-md transform scale-95 transition-transform duration-300 shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <i data-lucide="settings" class="w-5 h-5 text-slate-400"></i> <span data-i18n="settingsTitle">Settings</span>
+                </h2>
+                <button id="close-settings" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label data-i18n="riggedLabel" class="block text-sm font-medium text-slate-300 mb-1">Rigged Winner (Optional)</label>
+                    <p data-i18n="riggedDesc" class="text-xs text-slate-500 mb-2">If a name here matches one in the wheel, the wheel will ALWAYS land on it.</p>
+                    <input type="text" id="rigged-name" class="w-full bg-slate-900 border border-slate-700 rounded p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-slate-600" placeholder="Exact name of winner...">
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button id="save-settings" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                    <span data-i18n="save">Save & Close</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div id="winner-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center pointer-events-none">
+        <div class="bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-2xl text-center transform scale-50 opacity-0 transition-all duration-500 pointer-events-auto shadow-[0_0_100px_rgba(79,70,229,0.5)]">
+            <h3 data-i18n="winnerTitle" class="text-2xl font-bold text-indigo-300 mb-2 uppercase tracking-widest">WINNER</h3>
+            <div id="winner-name" class="text-5xl font-black text-white drop-shadow-lg mb-6">NAME</div>
+            <button id="close-winner" class="bg-white text-indigo-900 hover:bg-indigo-50 px-8 py-3 rounded-full font-bold shadow-lg transition-transform hover:scale-105">
+                <span data-i18n="next">Continue</span>
+            </button>
+        </div>
+    </div>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <script>
+        // --- Translations ---
+        const translations = {
+            en: {
+                participants: "Participants",
+                shuffle: "Shuffle",
+                spin: "SPIN NOW",
+                settingsTitle: "Settings",
+                riggedLabel: "Rigged Winner (Optional)",
+                riggedDesc: "If a name here matches one in the wheel, the wheel will ALWAYS land on it.",
+                riggedPlaceholder: "Exact name of winner...",
+                save: "Save & Close",
+                winnerTitle: "WINNER",
+                next: "Continue",
+                namesPlural: "Names",
+                namesSingular: "Name",
+                placeholder: "Enter names here...\nOne per line",
+                emptyWheel: "Enter Names"
+            },
+            de: {
+                participants: "Teilnehmer",
+                shuffle: "Mischen",
+                spin: "JETZT DREHEN",
+                settingsTitle: "Einstellungen",
+                riggedLabel: "Gezinkter Gewinner (Optional)",
+                riggedDesc: "Wenn hier ein Name steht, der auch im Rad ist, wird das Rad IMMER auf diesem Namen landen.",
+                riggedPlaceholder: "Exakter Name des Gewinners...",
+                save: "Speichern & Schließen",
+                winnerTitle: "GEWINNER",
+                next: "Weiter",
+                namesPlural: "Namen",
+                namesSingular: "Name",
+                placeholder: "Namen hier eingeben...\nEiner pro Zeile",
+                emptyWheel: "Bitte Namen eingeben"
+            },
+            es: {
+                participants: "Participantes",
+                shuffle: "Barajar",
+                spin: "GIRAR AHORA",
+                settingsTitle: "Configuración",
+                riggedLabel: "Ganador Trucado (Opcional)",
+                riggedDesc: "Si un nombre aquí coincide con uno en la rueda, la rueda SIEMPRE caerá en él.",
+                riggedPlaceholder: "Nombre exacto del ganador...",
+                save: "Guardar y Cerrar",
+                winnerTitle: "GANADOR",
+                next: "Continuar",
+                namesPlural: "Nombres",
+                namesSingular: "Nombre",
+                placeholder: "Ingrese nombres aquí...\nUno por línea",
+                emptyWheel: "Ingresa Nombres"
+            },
+            fr: {
+                participants: "Participants",
+                shuffle: "Mélanger",
+                spin: "TOURNER",
+                settingsTitle: "Paramètres",
+                riggedLabel: "Gagnant Truqué (Optionnel)",
+                riggedDesc: "Si un nom ici correspond à un nom dans la roue, la roue tombera TOUJOURS dessus.",
+                riggedPlaceholder: "Nom exact du gagnant...",
+                save: "Enregistrer et Fermer",
+                winnerTitle: "GAGNANT",
+                next: "Continuer",
+                namesPlural: "Noms",
+                namesSingular: "Nom",
+                placeholder: "Entrez les noms ici...\nUn par ligne",
+                emptyWheel: "Entrez des noms"
+            }
+        };
+
+        let currentLang = 'en';
+
+        // --- Icons Initialization ---
+        lucide.createIcons();
+
+        // --- Elements ---
+        const textarea = document.getElementById('input-names');
+        const canvas = document.getElementById('wheel-canvas');
+        const ctx = canvas.getContext('2d');
+        const btnSpin = document.getElementById('btn-spin');
+        const btnShuffle = document.getElementById('btn-shuffle');
+        const countBadge = document.getElementById('count-badge');
+        const langSelector = document.getElementById('lang-selector');
+        
+        // Settings
+        const btnSettings = document.getElementById('btn-settings');
+        const modalSettings = document.getElementById('settings-modal');
+        const btnCloseSettings = document.getElementById('close-settings');
+        const btnSaveSettings = document.getElementById('save-settings');
+        const inputRigged = document.getElementById('rigged-name');
+
+        // Winner Modal
+        const modalWinner = document.getElementById('winner-modal');
+        const textWinner = document.getElementById('winner-name');
+        const btnCloseWinner = document.getElementById('close-winner');
+
+        // --- State ---
+        let names = [];
+        let colors = [
+            '#ef4444', // Red 500
+            '#3b82f6', // Blue 500
+            '#22c55e', // Green 500
+            '#eab308', // Yellow 500
+            '#a855f7', // Purple 500
+            '#ec4899', // Pink 500
+            '#f97316', // Orange 500
+            '#06b6d4'  // Cyan 500
+        ];
+        
+        let currentRotation = 0; // in radians
+        let isSpinning = false;
+        let spinVelocity = 0;
+        let riggedWinner = ""; // Stores the rigged name
+
+        // --- Localization Logic ---
+        function detectAndSetLanguage() {
+            const browserLang = navigator.language || navigator.userLanguage;
+            // Get first 2 chars (e.g., 'en-US' -> 'en')
+            const shortLang = browserLang.substring(0, 2).toLowerCase();
+            
+            if (translations[shortLang]) {
+                setLanguage(shortLang);
+            } else {
+                setLanguage('en');
+            }
+        }
+
+        function setLanguage(lang) {
+            if (!translations[lang]) return;
+            currentLang = lang;
+            langSelector.value = lang;
+            
+            // Update static elements
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) {
+                    el.innerText = translations[lang][key];
+                }
+            });
+
+            // Update attributes (placeholders)
+            inputRigged.placeholder = translations[lang].riggedPlaceholder;
+            textarea.placeholder = translations[lang].placeholder;
+
+            // Trigger updates for dynamic content
+            updateCountBadge();
+            drawWheel();
+        }
+
+        langSelector.addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+        });
+
+        // --- Initialization ---
+        function init() {
+            detectAndSetLanguage();
+            parseNames();
+            // setLanguage calls drawWheel, so we don't need to call it twice implicitly, 
+            // but parseNames updates the list.
+            drawWheel();
+        }
+
+        function updateCountBadge() {
+            const t = translations[currentLang];
+            const suffix = names.length === 1 ? t.namesSingular : t.namesPlural;
+            countBadge.innerText = `${names.length} ${suffix}`;
+        }
+
+        function parseNames() {
+            const raw = textarea.value;
+            names = raw.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+            updateCountBadge();
+        }
+
+        // --- Drawing Logic ---
+        function drawWheel() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = width / 2 - 20; // Padding
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (names.length === 0) {
+                // Draw empty state
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#334155';
+                ctx.fill();
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 10;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 40px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // Localized empty text
+                ctx.fillText(translations[currentLang].emptyWheel, centerX, centerY);
+                return;
+            }
+
+            const step = (Math.PI * 2) / names.length;
+
+            // Save context to apply rotation
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(currentRotation);
+
+            for (let i = 0; i < names.length; i++) {
+                const startAngle = i * step;
+                const endAngle = (i + 1) * step;
+
+                // Slice
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                ctx.stroke(); // Simple border between slices
+
+                // Text
+                ctx.save();
+                ctx.rotate(startAngle + step / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 32px Inter';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 4;
+                // Truncate text if too long
+                let text = names[i];
+                if (text.length > 20) text = text.substring(0, 18) + '...';
+                ctx.fillText(text, radius - 40, 10);
+                ctx.restore();
+            }
+
+            ctx.restore();
+
+            // Center Hub
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 40, 0, Math.PI * 2);
+            ctx.fillStyle = '#1e293b';
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+
+            // Inner Center Dot
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+        }
+
+        // --- Spinning Logic ---
+        function startSpin() {
+            if (isSpinning || names.length < 1) return;
+            
+            // Check for Rigging
+            riggedWinner = inputRigged.value.trim();
+            let targetIndex = -1;
+            
+            // Validate Rigging
+            if (riggedWinner) {
+                // Case insensitive search for the rigged name
+                targetIndex = names.findIndex(n => n.toLowerCase() === riggedWinner.toLowerCase());
+            }
+
+            isSpinning = true;
+            btnSpin.disabled = true;
+            btnSpin.classList.add('opacity-50', 'cursor-not-allowed');
+
+            const sliceAngle = (Math.PI * 2) / names.length;
+            let finalAngleOffset;
+
+            if (targetIndex !== -1) {
+                // RIGGED MODE
+                console.log(`Rigging for: ${names[targetIndex]} (Index ${targetIndex})`);
+                
+                const padding = sliceAngle * 0.1;
+                const randomSliceOffset = padding + Math.random() * (sliceAngle - 2 * padding);
+                const targetSliceStart = targetIndex * sliceAngle;
+                let desiredRotation = - (targetSliceStart + randomSliceOffset);
+                const fullSpins = (Math.PI * 2) * (5 + Math.floor(Math.random() * 5));
+                let currentRotMod = currentRotation % (Math.PI * 2);
+                let targetTotal = desiredRotation + fullSpins;
+                
+                while (targetTotal < currentRotation + (Math.PI * 2 * 5)) {
+                    targetTotal += Math.PI * 2;
+                }
+                spinTarget = targetTotal;
+
+            } else {
+                // FAIR MODE
+                const randomSpins = (Math.random() * 5 + 5) * (Math.PI * 2);
+                spinTarget = currentRotation + randomSpins;
+            }
+
+            const duration = 5000; // 5 seconds
+            const startTime = performance.now();
+            const startRotation = currentRotation;
+
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Ease Out Quart function
+                const ease = 1 - Math.pow(1 - progress, 4);
+                
+                currentRotation = startRotation + (spinTarget - startRotation) * ease;
+                
+                drawWheel();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    finishSpin();
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function finishSpin() {
+            isSpinning = false;
+            btnSpin.disabled = false;
+            btnSpin.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            const twoPi = Math.PI * 2;
+            let normalizedRot = currentRotation % twoPi;
+            if (normalizedRot < 0) normalizedRot += twoPi;
+            
+            let pointerAngleLocal = (0 - normalizedRot) % twoPi;
+            if (pointerAngleLocal < 0) pointerAngleLocal += twoPi;
+            
+            const step = twoPi / names.length;
+            const winningIndex = Math.floor(pointerAngleLocal / step);
+            
+            const winner = names[winningIndex];
+            
+            showWinner(winner);
+        }
+
+        function showWinner(name) {
+            textWinner.innerText = name;
+            modalWinner.classList.remove('hidden');
+            void modalWinner.offsetWidth;
+            
+            const content = modalWinner.querySelector('div');
+            content.classList.remove('scale-50', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+            
+            startConfetti();
+        }
+
+        function hideWinner() {
+            const content = modalWinner.querySelector('div');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-50', 'opacity-0');
+            
+            setTimeout(() => {
+                modalWinner.classList.add('hidden');
+                stopConfetti();
+            }, 300);
+        }
+
+        // --- Event Listeners ---
+        textarea.addEventListener('input', () => {
+            parseNames();
+            if(!isSpinning) drawWheel();
+        });
+
+        btnSpin.addEventListener('click', startSpin);
+
+        btnShuffle.addEventListener('click', () => {
+            if(isSpinning) return;
+            names.sort(() => Math.random() - 0.5);
+            textarea.value = names.join('\n');
+            drawWheel();
+        });
+
+        // Settings Modal Handling
+        btnSettings.addEventListener('click', () => {
+            modalSettings.classList.remove('hidden');
+            setTimeout(() => modalSettings.classList.remove('opacity-0'), 10);
+        });
+
+        const closeSettingsFn = () => {
+            modalSettings.classList.add('opacity-0');
+            setTimeout(() => modalSettings.classList.add('hidden'), 300);
+        };
+
+        btnCloseSettings.addEventListener('click', closeSettingsFn);
+        btnSaveSettings.addEventListener('click', closeSettingsFn);
+
+        // Winner Modal Handling
+        btnCloseWinner.addEventListener('click', hideWinner);
+
+        window.addEventListener('resize', () => {
+            if(!isSpinning) drawWheel();
+        });
+
+        // --- Simple Confetti Implementation ---
+        const confettiCtx = document.getElementById('confetti-canvas').getContext('2d');
+        let confettiParticles = [];
+        let confettiAnimationId = null;
+
+        function startConfetti() {
+            confettiParticles = [];
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            document.getElementById('confetti-canvas').width = w;
+            document.getElementById('confetti-canvas').height = h;
+
+            for(let i=0; i<150; i++) {
+                confettiParticles.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h - h,
+                    vx: Math.random() * 4 - 2,
+                    vy: Math.random() * 4 + 2,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: Math.random() * 10 + 5,
+                    angle: Math.random() * Math.PI * 2,
+                    spin: Math.random() * 0.2 - 0.1
+                });
+            }
+            confettiLoop();
+        }
+
+        function confettiLoop() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            confettiCtx.clearRect(0,0,w,h);
+
+            confettiParticles.forEach(p => {
+                p.y += p.vy;
+                p.x += p.vx;
+                p.angle += p.spin;
+                
+                confettiCtx.save();
+                confettiCtx.translate(p.x, p.y);
+                confettiCtx.rotate(p.angle);
+                confettiCtx.fillStyle = p.color;
+                confettiCtx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+                confettiCtx.restore();
+
+                if(p.y > h) p.y = -20;
+            });
+
+            confettiAnimationId = requestAnimationFrame(confettiLoop);
+        }
+
+        function stopConfetti() {
+            if(confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+            confettiCtx.clearRect(0,0, window.innerWidth, window.innerHeight);
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>
