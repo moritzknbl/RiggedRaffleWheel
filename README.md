@@ -1,4 +1,4 @@
-# RaffleWheel Pro 🎡
+# Rigged RaffleWheel Pro 🎡
 
 Live Demo: https://moritzknbl.github.io/RiggedRaffleWheel/
 
